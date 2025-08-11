@@ -33,5 +33,6 @@ Kafka Broker, Topic ve Consumerların izlenmesi için <b>provectuslabs/kafka-ui<
 
 
 Mongo DB üzerinde Kafka'dan gelen verilerden product_id filtresi ve azalan zaman sıralamalı sorgu:
+<img width="100%" height="100%" alt="image" src="https://github.com/user-attachments/assets/79d6c124-af61-4584-80ec-cfb8c92b2d3f" />
 
 
