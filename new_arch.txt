@@ -1,0 +1,47 @@
+real-time-stock-tracker/
+│
+├── docker/                          # Tüm Dockerfile ve compose dosyaları
+│   ├── docker-compose.yml           # Ana sistemin orkestrasyonu
+│   ├── airflow/                     # Airflow için özel ayarlar
+│   ├── mongo/                       # Mongo init/config varsa
+│   ├── spark/                       # Spark master/worker ayarları
+│   ├── kafka/                       # Opsiyonel: KRaft mode veya multibroker yapılandırması
+│
+├── producer/                        # Kafka producer modülü
+│   ├── producer.py                  # Event üretici (zengin veri)
+│   ├── config.py                    # Ayarlar
+│   └── requirements.txt
+│
+├── consumer/                        # Kafka consumer (Mongo'ya yazan)
+│   ├── consumer.py
+│   ├── config.py
+│   └── requirements.txt
+│
+├── spark_jobs/                      # Spark Streaming analiz kodları
+│   ├── stock_streaming.py           # Ana Spark job
+│   ├── alerts.py                    # Alarm üretici fonksiyonlar
+│   ├── aggregations.py              # Trend/delta analizi
+│   └── schemas.py                   # Kafka JSON şema tanımı
+│
+├── airflow_dags/                    # Airflow DAG’leri (ETL)
+│   ├── daily_batch_etl.py           # Spark → PostgreSQL / Parquet
+│   └── report_generation.py         # PDF/Excel raporları tetikleyen DAG
+│
+├── dashboard/                       # Streamlit dashboard
+│   ├── app.py
+│   └── components/                  # Grafikler, tablolar, filtreler vs.
+│
+├── agents/                          # AI Agent modülü (LLM tabanlı)
+│   ├── stock_agent.py               # “Stoklarım iyi mi?” sorularına yanıt
+│   └── query_chain.py               # Mongo/Spark üzerinde doğal dil → veri sorgusu dönüşümü
+│
+├── reports/                         # Otomatik oluşturulan raporların çıktısı
+│   ├── excel/
+│   └── pdf/
+│
+├── shared/                          # Ortak util fonksiyonlar ve config
+│   ├── utils.py
+│   ├── logger.py
+│   └── settings.py
+│
+└── README.md                        # Proje açıklaması ve kurulum
