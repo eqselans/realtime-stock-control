@@ -8,6 +8,8 @@ from datetime import datetime
 
 load_dotenv()
 
+load_dotenv()
+
 MONGO_DB_USERNAME = os.getenv("MONGO_DB_USERNAME")
 MONGO_DB_PASSWORD = os.getenv("MONGO_DB_PASSWORD")
 MONGO_DB_HOST = os.getenv("MONGO_DB_HOST")
@@ -17,6 +19,8 @@ uri = (
     f"mongodb+srv://{MONGO_DB_USERNAME}:{MONGO_DB_PASSWORD}"
     f"@{MONGO_DB_HOST}/?retryWrites=true&w=majority&appName={MONGO_DB_APP_NAME}"
 )
+
+client = MongoClient(uri, server_api=ServerApi('1'))
 
 client = MongoClient(uri, server_api=ServerApi('1'))
 db = client["inventory"]
