@@ -1,0 +1,1 @@
+# Producer için gerekli Python paketleri

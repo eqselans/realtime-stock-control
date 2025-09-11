@@ -1,3 +1,5 @@
+# Docker Compose ana orkestrasyon dosyası
+# Tüm servisler ve alt sistemler burada tanımlanır.
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -112,8 +114,20 @@ services:
       KAFKA_CLUSTERS_0_NAME: "Kafka Cluster"
       # UI konteyner içinden INTERNAL adresleriyle erişsin:
       KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: "kafka:29092,kafka2:29093,kafka3:29094"
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: always
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    privileged: true
+    
 volumes:
   zk-data:
   kafka-data:
   kafka2-data:
   kafka3-data:
+  portainer_data:

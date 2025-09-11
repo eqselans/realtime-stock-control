@@ -1,0 +1,1 @@
+# Alarm üretici fonksiyonlar

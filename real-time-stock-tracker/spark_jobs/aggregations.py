@@ -1,0 +1,1 @@
+# Trend/delta analizi fonksiyonları
