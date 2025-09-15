@@ -20,11 +20,17 @@ uri = (
     f"@{MONGO_DB_HOST}/?retryWrites=true&w=majority&appName={MONGO_DB_APP_NAME}"
 )
 
-client = MongoClient(uri, server_api=ServerApi('1'))
 
 client = MongoClient(uri, server_api=ServerApi('1'))
 db = client["inventory"]
 collection = db["stock_events"]
+stock_logs = db["stock_logs"]      # geçmiş loglar
+products = db["products"]          # güncel stok durumu
+product_info = db["product_info"]  # sabit ürün bilgisi
+
+db.stock_logs.create_index([("ts", -1)])
+db.products.create_index("product_id", unique=True)
+db.product_info.create_index("product_id", unique=True)
 
 consumer = KafkaConsumer(
     "stock_updates",
@@ -47,6 +53,35 @@ def process_event(event: dict):
             ts=event.get("ts"),
         )
     )
+
+    # 1. Geçmiş log: Her olayı ekle
+    log_doc = {
+        **event,
+        "ts": datetime.utcnow(),
+        "source": "kafka_consumer",
+    }
+    stock_logs.insert_one(log_doc)
+
+    # 2. Güncel stok: product_id ile upsert
+    prod_doc = {
+        "product_id": event.get("product_id"),
+        "new_stock": event.get("new_stock"),
+        "updated_by": event.get("updated_by"),
+        "last_update": datetime.utcnow(),
+    }
+    if prod_doc["product_id"] is not None:
+        products.update_one({"product_id": prod_doc["product_id"]}, {"$set": prod_doc}, upsert=True)
+
+    # 3. Sabit ürün bilgisi: product_info'ya sadece yeni ürün ekle
+    info_doc = {
+        "product_id": event.get("product_id"),
+        "category": event.get("category"),
+        "city": event.get("city"),
+        "created_at": datetime.utcnow(),
+    }
+    if info_doc["product_id"] is not None:
+        # Sadece yeni ürünler eklenir, varsa eklenmez
+        product_info.update_one({"product_id": info_doc["product_id"]}, {"$setOnInsert": info_doc}, upsert=True)
 
 try:
     for message in consumer:
