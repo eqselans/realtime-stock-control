@@ -1,23 +1,29 @@
 # Kafka producer kodunuzu buraya taşıyın.
 from kafka import KafkaProducer
-import json, time, random
+import json, time, random, uuid
 from datetime import datetime
 
 # Ürünler (genişletilmiş)
 PRODUCTS = {
-	"SKU123": {"name": "Laptop", "stock": 50, "category": "Electronics", "supplier": "Teknosa"},
-	"SKU456": {"name": "Headphones", "stock": 120, "category": "Electronics", "supplier": "MediaMarkt"},
-	"SKU789": {"name": "Mouse", "stock": 80, "category": "Accessories", "supplier": "Vatan"},
-	"SKU012": {"name": "Desk Lamp", "stock": 60, "category": "Home", "supplier": "IKEA"},
-	"SKU999": {"name": "Notebook", "stock": 200, "category": "Stationery", "supplier": "D&R"}
+	"SKU123": {"name": "Laptop", "stock": 50, "category": "Electronics", "supplier": "Teknosa","unit_price": 16000,"critical_threshold":10},
+	"SKU456": {"name": "Headphones", "stock": 120, "category": "Electronics", "supplier": "MediaMarkt","unit_price": 2000,"critical_threshold":15},
+	"SKU789": {"name": "Mouse", "stock": 80, "category": "Accessories", "supplier": "Vatan","unit_price": 500,"critical_threshold":5},
+	"SKU012": {"name": "Desk Lamp", "stock": 60, "category": "Home", "supplier": "IKEA","unit_price": 1500,"critical_threshold":8},
+	"SKU999": {"name": "Notebook", "stock": 200, "category": "Stationery", "supplier": "D&R","unit_price": 12000,"critical_threshold":30}
 }
 
 WAREHOUSES = ["IST-WH-01", "ANK-WH-02", "IZM-WH-03"]
 CITIES = {"IST-WH-01": "Istanbul", "ANK-WH-02": "Ankara", "IZM-WH-03": "Izmir"}
-EVENT_SOURCES = ["checkout", "restock", "damaged", "admin_adjustment"]
+EVENT_SOURCES = ["checkout", "restock", "damaged", "admin_adjustment","transfer","return"]
+USER_TYPES = ["admin", "customer","supplier"]
+SOURCE_SYSTEMS = ["web","mobile_app","pos_system"]
+DEVICES = ["Windows-PC", "iPhone-14", "Android-Tablet", "Linux-Server"]
+BATCH_IDS = [f"BATCH-{datetime.utcnow().strftime('%Y%m%d')}-{i}" for i in range(1, 6)]
+
+
 
 producer = KafkaProducer(
-	bootstrap_servers=["localhost:9092", "localhost:9093", "localhost:9094"],
+	bootstrap_servers=["localhost:9092", "localhost:9094"],
 	value_serializer=lambda v: json.dumps(v).encode("utf-8"),
 	key_serializer=str.encode
 )
@@ -36,29 +42,57 @@ def get_delta(source):
 while True:
 	product_id = random.choice(list(PRODUCTS.keys()))
 	product = PRODUCTS[product_id]
-	source = random.choice(EVENT_SOURCES)
-	delta = get_delta(source)
+	operation_type = random.choice(EVENT_SOURCES)
+	delta = get_delta(operation_type)
 	warehouse = random.choice(WAREHOUSES)
 	city = CITIES[warehouse]
 
-	# Yeni stok hesapla (minimum 0)
-	new_stock = max(0, product["stock"] + delta)
-	real_delta = new_stock - product["stock"]  # Gerçek delta (stok -3 istendi ama -1 düştü)
+	user_id = f"user_{random.randint(1,100)}"
+	user_type = random.choice(USER_TYPES)
+	source_system = random.choice(SOURCE_SYSTEMS)
+	device_info = random.choice(DEVICES)
+	ip_address = f"192.168.{random.randint(0,255)}.{random.randint(1,254)}"
+	batch_id = random.choice(BATCH_IDS)
+ 
+	stock_before = product["stock"]
+	new_stock = max(0, stock_before + delta)
+	real_delta = new_stock - stock_before  # Gerçek delta (stok -3 istendi ama -1 düştü)
 	product["stock"] = new_stock  # Güncelle
+	unit_price = product.get("unit_price", 0)
+	total_value = new_stock * unit_price
+	critical_threshold = product.get("critical_threshold", 10)
+	is_critical = new_stock < critical_threshold
+
+
+
+
 
 	event = {
-		"event_type": "stock_update",
+		"event_id": str(uuid.uuid4()),
+		"timestamp" : datetime.utcnow().isoformat() + "Z",
 		"product_id": product_id,
 		"product_name": product["name"],
 		"category": product["category"],
 		"supplier": product["supplier"],
+		"stock_before": stock_before,
+		"unit_price" : unit_price,
+		"total_value": total_value,
+		"user_id": user_id,
+		"user_type": user_type,
+		"operation_type": operation_type,
+		"source_system": source_system,
+		"device_info": device_info,
+		"ip_address": ip_address,
+		"critical_threshold": critical_threshold,
+		"is_critical": is_critical,
+		"batch_id": batch_id,
 		"delta": real_delta,
 		"new_stock": new_stock,
 		"warehouse_id": warehouse,
 		"city": city,
-		"updated_by": source,
 		"ts": datetime.utcnow().isoformat() + "Z"
 	}
+
 
 	producer.send("stock_updates", key=product_id, value=event)
 	producer.flush()
