@@ -1,12 +1,21 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-import os
+import os, sys
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Agent erişimi için path ekle
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # real-time-stock-tracker
+if BASE_DIR not in sys.path:
+    sys.path.append(BASE_DIR)
+try:
+    from agents.stock_agent import run_agent
+except Exception as e:
+    run_agent = None  # Endpointte kontrol edeceğiz
 
 MONGO_DB_USERNAME = os.getenv("MONGO_DB_USERNAME")
 MONGO_DB_PASSWORD = os.getenv("MONGO_DB_PASSWORD")
@@ -24,7 +33,7 @@ db = client["inventory"]
 
 
 app = FastAPI(
-    title="Stock API",
+    title="Stock API",    
     description="""
     <b>Stok Yönetimi API</b><br>
     Bu API ile ürün ekleme, güncelleme, stok sorgulama ve geçmiş loglara erişim sağlayabilirsiniz.<br>
@@ -58,6 +67,35 @@ class Product(BaseModel):
     updated_by: str
     category: Optional[str] = None
     city: Optional[str] = None
+
+class AgentQuery(BaseModel):
+    question: str
+
+class AgentResponse(BaseModel):
+    question: str
+    tool_call: Optional[dict] = None
+    data: Optional[dict] = None
+    answer: Optional[str] = None
+    error: Optional[str] = None
+
+def _to_jsonable(v):
+    try:
+        from bson import ObjectId
+    except Exception:
+        ObjectId = None  # type: ignore
+    import datetime as _dt
+    if ObjectId and isinstance(v, ObjectId):
+        return str(v)
+    if isinstance(v, (_dt.datetime, _dt.date)):
+        return v.isoformat()
+    return v
+
+def sanitize_doc(doc):
+    if isinstance(doc, list):
+        return [sanitize_doc(d) for d in doc]
+    if isinstance(doc, dict):
+        return {k: sanitize_doc(v) for k,v in doc.items()}
+    return _to_jsonable(doc)
 
 
 @app.get("/products/{product_id}", summary="Ürün detayını getir", tags=["Ürün"], response_model=Product, responses={
@@ -118,3 +156,24 @@ def get_stock_logs(product_id: str):
 def custom_swagger():
     from fastapi.openapi.docs import get_swagger_ui_html
     return get_swagger_ui_html(openapi_url=app.openapi_url, title=app.title + " - Swagger UI")
+
+@app.post("/agent/ask", tags=["Ürün"], summary="Doğal dil stok sorusu sor", response_model=AgentResponse, responses={
+    200: {"description": "Agent cevabı"},
+    500: {"description": "Agent hata"}
+})
+def ask_agent(payload: AgentQuery):
+    if run_agent is None:
+        raise HTTPException(status_code=500, detail="Agent modülü yüklenemedi")
+    try:
+        result = run_agent(payload.question)
+        sanitized_data = sanitize_doc(result.get("data")) if result.get("data") else None
+        answer_field = result.get("model_answer")
+        if isinstance(answer_field, dict):
+            answer_field = sanitize_doc(answer_field)
+        return AgentResponse(
+            question=payload.question,
+            data=sanitized_data,
+            answer=answer_field,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
