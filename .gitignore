@@ -1,4 +1,41 @@
-.venv
+.venv/
+venv/
 .env
-.pyc
+.env.*
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Byte-compiled / optimized / DLL files
+*.so
+
+# Unit test / coverage reports
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# VS Code/IDE
+.vscode/
+.idea/
+
+# Build/dist
+build/
+dist/
+*.egg-info/
+
+# Docker
+**/.dockerignore
+**/Dockerfile.*.tmp
+
+# Logs
+*.log
+logs/
+
+# Airflow typical dirs (if mounted locally)
+real-time-stock-tracker/airflow/logs/
+real-time-stock-tracker/airflow/plugins/

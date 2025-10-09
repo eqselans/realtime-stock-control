@@ -5,6 +5,7 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import os, sys
 from dotenv import load_dotenv
+from flask import Flask, jsonify
 
 load_dotenv()
 
@@ -177,3 +178,8 @@ def ask_agent(payload: AgentQuery):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+    
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy'}), 200
