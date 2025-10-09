@@ -114,6 +114,127 @@ services:
       KAFKA_CLUSTERS_0_NAME: "Kafka Cluster"
       # UI konteyner içinden INTERNAL adresleriyle erişsin:
       KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: "kafka:29092,kafka2:29093,kafka3:29094"
+  airflow-webserver:
+    build:
+      context: ../airflow
+      dockerfile: Dockerfile
+    container_name: airflow-web
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
+      - AIRFLOW__CORE__DEFAULT_TIMEZONE=Europe/Istanbul
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-web:8080/execution/
+    env_file:
+      - ../.env
+    volumes:
+      - airflow_home:/opt/airflow
+      - ../airflow/dags:/opt/airflow/dags
+      - ../airflow/logs:/opt/airflow/logs
+    ports:
+      - "8082:8080"
+    depends_on:
+      - kafka
+    command: >
+      bash -c "airflow db migrate && airflow users create --role Admin --username admin --password admin --email admin@example.com --firstname Admin --lastname User || true && airflow api-server"
+    restart: unless-stopped
+  airflow-scheduler:
+    build:
+      context: ../airflow
+      dockerfile: Dockerfile
+    container_name: airflow-scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__CORE__DEFAULT_TIMEZONE=Europe/Istanbul
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-web:8080/execution/
+    env_file:
+      - ../.env
+    volumes:
+      - airflow_home:/opt/airflow
+      - ../airflow/dags:/opt/airflow/dags
+      - ../airflow/logs:/opt/airflow/logs
+    depends_on:
+      - airflow-webserver
+    command: >
+      bash -c "airflow db migrate && airflow scheduler"
+    restart: unless-stopped
+
+  airflow-triggerer:
+    build:
+      context: ../airflow
+      dockerfile: Dockerfile
+    container_name: airflow-triggerer
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__CORE__DEFAULT_TIMEZONE=Europe/Istanbul
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-web:8080/execution/
+    env_file:
+      - ../.env
+    volumes:
+      - airflow_home:/opt/airflow
+      - ../airflow/dags:/opt/airflow/dags
+      - ../airflow/logs:/opt/airflow/logs
+    depends_on:
+      - airflow-webserver
+    command: >
+      bash -c "airflow db migrate && airflow triggerer"
+    restart: unless-stopped
+
+  airflow-dag-processor:
+    build:
+      context: ../airflow
+      dockerfile: Dockerfile
+    container_name: airflow-dag-processor
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__CORE__DEFAULT_TIMEZONE=Europe/Istanbul
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-web:8080/execution/
+    env_file:
+      - ../.env
+    volumes:
+      - airflow_home:/opt/airflow
+      - ../airflow/dags:/opt/airflow/dags
+      - ../airflow/logs:/opt/airflow/logs
+    depends_on:
+      - airflow-webserver
+    command: >
+      bash -c "airflow db migrate && airflow dag-processor"
+    restart: unless-stopped
+  fastapi:
+    build:
+      context: ..
+      dockerfile: fastapi-app/Dockerfile
+    container_name: stock-fastapi
+    env_file:
+      - ../.env
+    environment:
+      - ENABLE_GROQ=false
+    ports:
+      - "8000:8000"
+    depends_on:
+      - kafka
+      - kafka2
+      - kafka3
+    restart: unless-stopped
+  streamlit:
+    build:
+      context: ../streamlit-app
+      dockerfile: Dockerfile
+    container_name: stock-dashboard
+    environment:
+      - API_URL=http://fastapi:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - fastapi
+    restart: unless-stopped
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
@@ -131,3 +252,4 @@ volumes:
   kafka2-data:
   kafka3-data:
   portainer_data:
+  airflow_home:
