@@ -1,4 +1,52 @@
+# Virtual environments
 .venv
+venv/
+env/
+ENV/
+
+# Environment variables
 .env
-.pyc
+.env.local
+
+# Python bytecode
+*.pyc
+*.pyo
+*.pyd
 __pycache__/
+*.so
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Docker
+docker-compose.override.yml
+
+# Reports
+reports/*.pdf
+reports/*.xlsx
+reports/*.csv

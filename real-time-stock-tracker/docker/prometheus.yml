@@ -1,0 +1,85 @@
+# Prometheus yapılandırma dosyası
+# Bu dosya Prometheus için temel bir yapılandırma sağlar.
+# Docker Compose ile kullanım için:
+# volumes:
+#   - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+global:
+  scrape_interval: 15s  # Varsayılan olarak her 15 saniyede bir metrik topla
+  evaluation_interval: 15s  # Kuralları her 15 saniyede bir değerlendir
+  external_labels:
+    monitor: 'stock-control-monitor'
+    cluster: 'real-time-stock-tracker'
+
+# Alertmanager yapılandırması (isteğe bağlı)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Kural dosyaları (isteğe bağlı)
+# rule_files:
+#   - "alerts.yml"
+
+# Metrik toplama hedefleri
+scrape_configs:
+  # Prometheus'un kendi metriklerini topla
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Kafka metriklerini topla (JMX Exporter gerekli)
+  # - job_name: 'kafka'
+  #   static_configs:
+  #     - targets: 
+  #       - 'kafka:9308'
+  #       - 'kafka2:9308'
+  #       - 'kafka3:9308'
+
+  # Kafka Exporter (Kafka lag ve topic metrikleri için)
+  # - job_name: 'kafka-exporter'
+  #   static_configs:
+  #     - targets: ['kafka-exporter:9308']
+
+  # MongoDB Exporter
+  # - job_name: 'mongodb'
+  #   static_configs:
+  #     - targets: ['mongodb-exporter:9216']
+
+  # FastAPI uygulaması (prometheus-fastapi-instrumentator ile)
+  # - job_name: 'fastapi'
+  #   static_configs:
+  #     - targets: ['fastapi:8000']
+  #   metrics_path: '/metrics'
+
+  # Spark metriklerini topla (Spark Metrics System ile)
+  # - job_name: 'spark'
+  #   static_configs:
+  #     - targets: 
+  #       - 'spark-master:8080'
+  #       - 'spark-worker-1:8081'
+
+  # Node Exporter (sistem metriklerini topla)
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+
+  # cAdvisor (container metriklerini topla)
+  # - job_name: 'cadvisor'
+  #   static_configs:
+  #     - targets: ['cadvisor:8080']
+
+# Remote write yapılandırması (isteğe bağlı - uzak Prometheus'a gönder)
+# remote_write:
+#   - url: "https://prometheus-remote-write-endpoint/api/v1/write"
+#     basic_auth:
+#       username: "username"
+#       password: "password"
+
+# Remote read yapılandırması (isteğe bağlı)
+# remote_read:
+#   - url: "https://prometheus-remote-read-endpoint/api/v1/read"
+#     basic_auth:
+#       username: "username"
+#       password: "password"
