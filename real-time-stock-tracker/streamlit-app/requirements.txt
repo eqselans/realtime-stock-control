@@ -5,3 +5,4 @@ pymongo
 openpyxl  # Excel için
 fpdf2  # PDF için
 requests
+plotly

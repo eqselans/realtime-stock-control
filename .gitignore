@@ -39,3 +39,5 @@ logs/
 # Airflow typical dirs (if mounted locally)
 real-time-stock-tracker/airflow/logs/
 real-time-stock-tracker/airflow/plugins/
+
+./hdfs_spark.py

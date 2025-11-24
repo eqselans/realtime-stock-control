@@ -24,7 +24,7 @@ bootstrap_env = os.getenv("KAFKA_BOOTSTRAP")
 if bootstrap_env:
     BOOTSTRAP_SERVERS = [s.strip() for s in bootstrap_env.split(",") if s.strip()]
 else:
-    BOOTSTRAP_SERVERS = ["kafka:29092", "kafka3:29094"]
+    BOOTSTRAP_SERVERS = ["kafka:29092", "kafka2:29093", "kafka3:29094"]
 
 TOPIC = os.getenv("KAFKA_TOPIC", "stock_updates")
 

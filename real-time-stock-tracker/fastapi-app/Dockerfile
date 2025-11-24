@@ -9,7 +9,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application and its local dependencies (agents/shared)
 COPY fastapi-app/app_fastapi.py ./app_fastapi.py
 COPY agents ./agents
-COPY shared ./shared
 COPY tools ./tools
 
 ENV PYTHONPATH=/app
