@@ -230,6 +230,8 @@ services:
       - kafka2
       - kafka3
     restart: unless-stopped
+    volumes:
+      - ../fastapi-app/app_fastapi.py:/app/app.py
   
   streamlit:
     build:
@@ -243,6 +245,8 @@ services:
     depends_on:
       - fastapi
     restart: unless-stopped
+    volumes:
+      - ../streamlit-app/app.py:/app/app.py
   
   portainer:
     image: portainer/portainer-ce:latest

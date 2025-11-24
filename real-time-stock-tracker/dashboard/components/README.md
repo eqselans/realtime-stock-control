@@ -1,1 +1,0 @@
-# Dashboard bileşenleri için açıklama

@@ -4,6 +4,7 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 from datetime import datetime
+import traceback
 
 load_dotenv()
 
@@ -34,20 +35,44 @@ bootstrap_env = os.getenv("KAFKA_BOOTSTRAP")
 if bootstrap_env:
     BOOTSTRAP_SERVERS = [s.strip() for s in bootstrap_env.split(",") if s.strip()]
 else:
-    BOOTSTRAP_SERVERS = ["kafka:29092", "kafka3:29094"]
+    # Varsayılan olarak TÜM broker'ları listele (metadata erişimi daha stabil)
+    BOOTSTRAP_SERVERS = ["kafka:29092", "kafka2:29093", "kafka3:29094"]
 
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "stock_updates")
+GROUP_ID = os.getenv("KAFKA_GROUP", "stock-consumer")
+FORCE_NEW_GROUP = os.getenv("FORCE_NEW_GROUP", "true").lower() == "true"
+if FORCE_NEW_GROUP:
+    # Zaman damgası ile yeni group id => önceki offset'leri yok sayar, earliest'ten okur
+    GROUP_ID = f"{GROUP_ID}-{int(time.time())}"
 
+print(1)
+print(BOOTSTRAP_SERVERS)
+print(KAFKA_TOPIC)
 consumer = KafkaConsumer(
     KAFKA_TOPIC,
     bootstrap_servers=BOOTSTRAP_SERVERS,
     value_deserializer=lambda m: json.loads(m.decode("utf-8")),
     key_deserializer=lambda k: k.decode("utf-8") if k is not None else None,
-    group_id="stock-consumer",
+    group_id=GROUP_ID,
     enable_auto_commit=True,
     auto_offset_reset="earliest",
+    request_timeout_ms=30000,
+    connections_max_idle_ms=540000,
 )
 
+print(f"[DEBUG] Bootstrap Servers: {BOOTSTRAP_SERVERS}")
+print(f"[DEBUG] Topic: {KAFKA_TOPIC}")
+print(f"[DEBUG] Group ID: {GROUP_ID}")
+print(f"[DEBUG] Consumer bootstrap connected: {consumer.bootstrap_connected()}")
+print(f"[DEBUG] Subscription: {consumer.subscription()}")
+try:
+    print(f"[DEBUG] Available topics: {consumer.topics()}")
+    print(f"[DEBUG] Partitions for {KAFKA_TOPIC}: {consumer.partitions_for_topic(KAFKA_TOPIC)}")
+except Exception:
+    print("[WARN] Topic metadata alınamadı:")
+    traceback.print_exc()
+
+print(consumer)
 
 def process_event(event: dict):
     # KeyError önlemek için .get kullan
@@ -113,26 +138,41 @@ def process_event(event: dict):
         product_info.update_one({"product_id": info_doc["product_id"]}, {"$setOnInsert": info_doc}, upsert=True)
 
 
+LOOP_IDLE_LOG_INTERVAL = 30  # saniye
+last_msg_ts = time.time()
+
 try:
-    for message in consumer:
-        event = message.value
-        process_event(event)
-        print(f"Key: {message.key}  | Partition: {message.partition}  | Offset: {message.offset}")
-        print(f"Message timestamp: {datetime.fromtimestamp(message.timestamp / 1000)}")
-
-        if event:
-            # idempotent upsert: aynı mesaj iki kez gelirse duplicate olmaz
-            doc = {
-                **event,
-                "ts": datetime.utcnow(),
-                "source": "kafka_consumer",
-                "_id": f"{message.topic}-{message.partition}-{message.offset}",
-            }
-            collection.update_one({"_id": doc["_id"]}, {"$set": doc}, upsert=True)
-
+    while True:
+        msg_pack = consumer.poll(timeout_ms=1000, max_records=10)
+        if not msg_pack:
+            if time.time() - last_msg_ts > LOOP_IDLE_LOG_INTERVAL:
+                print("[INFO] Henüz yeni mesaj gelmedi (poll idle).")
+                last_msg_ts = time.time()
+            continue
+        for tp, messages in msg_pack.items():
+            for message in messages:
+                event = message.value
+                process_event(event)
+                print(f"Key: {message.key} | Partition: {message.partition} | Offset: {message.offset}")
+                print(f"Message timestamp(ms): {message.timestamp}")
+                if event:
+                    doc = {
+                        **event,
+                        "ts": datetime.utcnow(),
+                        "source": "kafka_consumer",
+                        "_id": f"{message.topic}-{message.partition}-{message.offset}",
+                    }
+                    collection.update_one({"_id": doc["_id"]}, {"$set": doc}, upsert=True)
+        last_msg_ts = time.time()
 except KeyboardInterrupt:
-    pass
+    print("[INFO] Kapatma isteği alındı.")
+except Exception:
+    print("[ERROR] Tüketim döngüsünde hata:")
+    traceback.print_exc()
 finally:
-    consumer.close()
+    try:
+        consumer.close()
+    except Exception:
+        pass
     client.close()
     print("Consumer closed and MongoDB client disconnected.")

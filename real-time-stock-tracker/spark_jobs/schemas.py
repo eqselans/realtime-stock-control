@@ -1,1 +1,0 @@
-# Kafka JSON şema tanımı

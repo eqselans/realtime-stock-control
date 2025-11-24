@@ -1,204 +1,269 @@
 # Realtime Stock Control System 📦⚡
 
-Gerçek zamanlı stok olaylarını Kafka üzerinden işleyip MongoDB’ye kaydeden uçtan uca bir sistem. Mevcut kurulum, gözlemleme (Kafka UI, Portainer), orkestrasyon (Airflow), API (FastAPI) ve dashboard (Streamlit) bileşenlerini içerir.
+Gerçek zamanlı stok olaylarını Kafka üzerinden işleyip MongoDB Atlas, FastAPI ve Streamlit katmanlarıyla izleyen; Airflow ve Spark entegrasyonlarıyla zenginleştirilmiş uçtan uca gerçek zaman + yakın gerçek zaman veri platformu.
 
-Temel akış: Producer → Kafka Cluster → Consumer → MongoDB (+ API & Dashboard, ETL/DAG’ler, Spark işleri).
+Temel akış: Producer → Kafka Cluster → Consumer → MongoDB → API (FastAPI) → Dashboard (Streamlit) → (Airflow DAG tetiklemeleri & Spark Structured Streaming) → HDFS / Raporlama.
 
-—
+---
 
-## � Bileşenler ve Mimari
+## 🗺️ İçindekiler
+1. Bileşenler ve Mimari
+2. Servis & Port Haritası
+3. Kafka Topic Stratejisi
+4. MongoDB Şema & Indexler
+5. Hızlı Başlangıç
+6. Klasör Yapısı
+7. Airflow DAG’leri
+8. Spark & HDFS Entegrasyonu
+9. API & Dashboard
+10. Sorun Giderme
+11. Backlog
+12. Ekran Görüntüsü Yerleri (Placeholders)
 
-1) Producer
-- Ürün stok değişimlerini simüle eder ve Kafka’ya `stock_updates` topic’ine yazar.
+---
 
-2) Kafka Cluster
-- 3 broker (external: 9092, 9093, 9094; internal: 29092, 29093, 29094) + Zookeeper (2181).
-- İzleme için Kafka UI (provectuslabs/kafka-ui) kullanılır.
+## 🏗️ Bileşenler ve Mimari
 
-3) Consumer
-- `stock_updates` mesajlarını okur ve MongoDB’ye yazar.
-- İdempotent kayıt için `_id = {topic}-{partition}-{offset}` kullanır.
-- Aşağıdaki koleksiyonları yönetir: `inventory.stock_events`, `inventory.stock_logs`, `inventory.products`, `inventory.product_info`.
+> Mimari diyagramı eklenecek (PLACEHOLDER) — `docs/images/architecture.png`
 
-4) MongoDB (Atlas)
-- Ortam değişkenleriyle Atlas’a bağlanır. Yerel Mongo konteyneri bu sürümde compose’da yoktur.
+1) **Producer**  
+Ürün stok değişimlerini simüle eder ve Kafka’ya `stock_updates` topic’ine yazar.
 
-5) Airflow (Web UI + Scheduler + Triggerer + Dag Processor)
-- DAG klasörü: `real-time-stock-tracker/airflow/dags` (örn. `hello_dag.py`, `daily_batch_etl.py`, `report_generation.py`).
-- Web arayüzü: http://localhost:8082 (ilk kullanıcı admin/admin olarak oluşturulur).
+2) **Kafka Cluster**  
+3 broker (external: 9092, 9093, 9094; internal: 29092, 29093, 29094) + Zookeeper (2181). İzleme için Kafka UI kullanılır.
 
-6) FastAPI
-- Servis: http://localhost:8000, Swagger: http://localhost:8000/docs
-- Streamlit uygulaması bu API’yi tüketir.
+3) **Consumer**  
+`stock_updates` mesajlarını okur ve MongoDB’ye idempotent şekilde yazar (`_id = {topic}-{partition}-{offset}`). Koleksiyonlar: `inventory.stock_events`, `inventory.stock_logs`, `inventory.products`, `inventory.product_info`.
 
-7) Streamlit Dashboard
-- Servis: http://localhost:8501
-- API_URL env değişkeni ile FastAPI’ye bağlanır.
+4) **MongoDB Atlas**  
+Global erişilebilir, güvenli bağlantı (IP allowlist + kullanıcı/parola). Opsiyonel yerel container ileride eklenebilir.
 
-8) Portainer
-- Docker yönetimi: http://localhost:9000
+5) **Airflow**  
+Orkestrasyon: gerçek zaman veriye dayalı özet/rapor ve Spark job tetikleme DAG’leri. Web arayüzü: http://localhost:8082
 
-—
+6) **FastAPI**  
+REST + OpenAPI dokümantasyonu. Dashboard bu katmandan veri tüketir.
 
-## 🌐 Servis ve Portlar (docker-compose)
+7) **Streamlit Dashboard**  
+Gerçek zaman envanter ve metrik görselleştirme. Web: http://localhost:8501
 
+8) **Spark Structured Streaming**  
+`stock_streaming.py` ile Kafka’dan mikro-batch / continuous processing; özetler için HDFS / Mongo sink hazırlıkları.
+
+9) **HDFS / HDFS Yazma**  
+`hdfs_spark.py` & `write_hdfs_summary_dag.py` üzerinden stok olaylarından günlük özetlerin HDFS'e aktarımı (PLACEHOLDER: detaylı kullanım dokümantasyonu eklenecek).
+
+10) **Gözlemleme Araçları**  
+Kafka UI (topic & consumer lag), Portainer (container yönetimi). Gelecekte Prometheus + Grafana.
+
+11) **LLM / Agents (Opsiyonel)**  
+`agents/stock_agent.py` ile ileri seviye sorgu zincirleri (PLACEHOLDER: örnek kullanım).
+
+---
+
+## 🌐 Servis & Port Haritası
 - Zookeeper: 2181
-- Kafka broker’ları: 9092, 9093, 9094 (external) — internal: 29092, 29093, 29094
+- Kafka broker’ları: 9092, 9093, 9094 (external) / 29092, 29093, 29094 (internal)
 - Kafka UI: 8080
-- Airflow Web: 8082 (konteyner içi 8080)
+- Airflow Web: 8082 (container içi 8080 mapping)
 - FastAPI: 8000
 - Streamlit: 8501
 - Portainer: 9000
 
-—
+---
 
-## 🧩 Kafka Topic ve Partitions
+## 🧩 Kafka Topic Stratejisi
+- Topic: `stock_updates`
+- Partition: 3 (yük dengeleme & paralel tüketim)
+- Replication Factor: 3 (yüksek erişilebilirlik)  
+> PLACEHOLDER: Topic creation screen shot — `docs/images/topic-create.png`
 
-- Topic adı: `stock_updates`
-- Önerilen yapı: 3 partition, replication factor 3 (tüm broker’lar ayakta olmalı).
-- Topic’i Kafka UI üzerinden oluşturabilir veya auto-create açıksa otomatik üretilebilir.
+---
 
-—
-
-## 🗄️ MongoDB Şeması ve Index’ler
-
+## 🗄️ MongoDB Şema & Indexler
 Database: `inventory`
 
-- `stock_events`
-   - İdempotent `_id = topic-partition-offset`
-   - `ts` ve `source` alanları ile izlenebilirlik
-- `stock_logs`
-   - Her olay ayrıca log’lanır; `ts` üzerinde azalan index
-- `products`
-   - Güncel stok durumu; `product_id` üzerinde unique index
-- `product_info`
-   - Ürün sabit bilgisi; `product_id` üzerinde unique index
+| Koleksiyon | Amaç | Önemli Alanlar | Index |
+|------------|------|----------------|-------|
+| `stock_events` | Ham olay | `_id`, `product_id`, `delta`, `ts` | `_id` PK, `product_id` (opsiyonel) |
+| `stock_logs` | Ayrıntılı log | `event_id`, `ts`, `source` | `ts` desc |
+| `products` | Anlık stok durumu | `product_id`, `quantity`, `updated_at` | `product_id` unique |
+| `product_info` | Ürün meta | `product_id`, `name`, `category` | `product_id` unique |
 
-—
+> PLACEHOLDER: MongoDB collection screen — `docs/images/mongo-collections.png`
+
+---
 
 ## ⚙️ Hızlı Başlangıç
 
-Önkoşullar
+Önkoşullar:
 - Docker Desktop (çalışır durumda)
-- Python 3.10+ (producer/consumer’ı yerelde çalıştıracaksanız)
+- Python 3.10+ (producer & consumer’ı lokalde çalıştıracaksanız)
 
-1) Ortam değişkenlerini ayarlayın (`real-time-stock-tracker/.env`)
-
-```
+1) `.env` oluştur (`real-time-stock-tracker/.env`):
+```env
 MONGO_DB_USERNAME=your_user
 MONGO_DB_PASSWORD=your_password
 MONGO_DB_HOST=your-cluster.mongodb.net
+API_URL=http://localhost:8000
 
-# Opsiyonel
+# Opsiyonel özellikler
 ENABLE_GROQ=false
-```
+```  
+> PLACEHOLDER: .env example screenshot — `docs/images/env-file.png`
 
-2) Altyapıyı başlatın (Windows PowerShell)
-
+2) Docker altyapısını başlat (PowerShell):
 ```powershell
 cd real-time-stock-tracker\docker
 docker compose up -d
 ```
 
-3) Topic’i doğrulayın/oluşturun
-- http://localhost:8080 (Kafka UI) → Clusters → Topics → `stock_updates`
-- Partitions: 3, Replication: 3 (opsiyonel; auto-create açıksa gerekmez)
+3) Topic kontrolü:
+- http://localhost:8080 → Clusters → Topics → `stock_updates`
 
-4) Consumer’ı yerelde çalıştırın
 
-```powershell
-cd ..\consumer
-python -m venv .venv ; .\.venv\Scripts\Activate.ps1 ; pip install -r requirements.txt ; python consumer.py
-```
-
-5) Producer’ı yerelde çalıştırın
-
-```powershell
-cd ..\producer
-python -m venv .venv ; .\.venv\Scripts\Activate.ps1 ; pip install -r requirements.txt ; python producer.py
-```
-
-6) Doğrulama
-- Kafka UI’da topic mesaj akışını izleyin: http://localhost:8080
-- FastAPI: http://localhost:8000/docs
+1) Doğrulama:
+- Kafka UI: http://localhost:8080
+- FastAPI Swagger: http://localhost:8000/docs
 - Streamlit: http://localhost:8501
 - Airflow: http://localhost:8082 (admin/admin)
 - Portainer: http://localhost:9000
 
-Not: Bu sürümde MongoDB konteyneri yok; Atlas’a bağlanmanız gerekir (IP allowlist ve kullanıcı/parola).
+> MongoDB Atlas kullanılmakta: IP allowlist & kullanıcı yetkilerini kontrol edin.
 
-—
+---
 
-## 📁 Klasör Yapısı (özet)
-
-```
+## 📁 Klasör Yapısı (Özet)
+```text
 real-time-stock-tracker/
-   docker/docker-compose.yml
-   producer/ (producer.py, requirements.txt)
-   consumer/ (consumer.py, requirements.txt)
-   fastapi-app/ (app_fastapi.py, Dockerfile)
-   streamlit-app/ (app.py, Dockerfile)
-   airflow/ (Dockerfile, dags/…)
-   spark_jobs/ (stock_streaming.py, aggregations.py, alerts.py, schemas.py)
-   shared/ (logger.py, settings.py, utils.py)
-   agents/ (stock_agent.py, query_chain.py)
+   docker/
+      docker-compose.yml
+   producer/
+      producer.py  requirements.txt
+   consumer/
+      consumer.py  requirements.txt
+   fastapi-app/
+      app_fastapi.py  Dockerfile  requirements.txt
+   streamlit-app/
+      app.py  Dockerfile  requirements.txt
+   airflow/
+      Dockerfile  dags/*.py
+   spark_jobs/
+      stock_streaming.py  aggregations.py  alerts.py  schemas.py
+   agents/
+      stock_agent.py  query_chain.py
+   tools/
+      mongo_tool.py
+   hdfs_spark.py (HDFS entegrasyonu)
 ```
 
-—
+> PLACEHOLDER: Repository tree screenshot — `docs/images/repo-tree.png`
+
+---
 
 ## 🧪 Airflow DAG’leri
+| DAG | Amaç | Frekans | Not |
+|-----|------|---------|-----|
+| `hello_dag.py` | Örnek / sağlık kontrolü | Dakikalık | Basit print task |
+| `kafka_producer_dag.py` | Producer tetikleme (opsiyonel) | Dakikalık / manuel | Lokal script entegrasyonu |
+| `kafka_consumer_dag.py` | Consumer kontrol / tetikleme | Dakikalık / manuel | Lag gözlemine uyarlanabilir |
+| `spark_streaming_submit_dag.py` | Spark job submit | Manuel / periyodik | Structured Streaming başlatma |
+| `stream_summary_dag.py` | Akış özet metrik üretimi | Dakikalık | Kafka → Özet dokümantasyon |
+| `write_hdfs_summary_dag.py` | HDFS’e özet yazımı | Günlük | HDFS sink |
+| `report_generation.py` | Rapor PDF/CSV üretimi | Günlük | Metrik derleme |
 
-- `hello_dag.py`: Örnek DAG
-- `daily_batch_etl.py`: Günlük toplu iş akışı (örnek)
-- `report_generation.py`: Rapor üretimi (örnek)
+> PLACEHOLDER: Airflow UI screenshot — `docs/images/airflow-ui.png`
 
-Airflow, docker-compose ile web + scheduler + triggerer + dag-processor servisleriyle gelir. İlk kullanıcı otomatik oluşturulur (admin/admin).
+---
 
-—
+## 🔥 Spark & HDFS Entegrasyonu
+- `spark_streaming_submit_dag.py` DAG’i, `spark_jobs/stock_streaming.py` script’ini tetikler.
+- HDFS yazımı için: `write_hdfs_summary_dag.py` + `hdfs_spark.py` (Kafka’dan gelen olayların günlük agregasyonu).  
+> PLACEHOLDER: Spark job run log screenshot — `docs/images/spark-run.png`
 
-## 🔌 API ve Dashboard
+Gelecek adımlar: Spark cluster (master/worker) container’ları, checkpoint directory stratejisi, schema evolution.
 
-- FastAPI: `fastapi-app/app_fastapi.py` → http://localhost:8000/docs
-- Streamlit: `streamlit-app/app.py` → http://localhost:8501 (API_URL env ile FastAPI’ye bağlanır)
+---
 
-—
+## 🔌 API & Dashboard
+- FastAPI endpoint’leri: `fastapi-app/app_fastapi.py` (OpenAPI docs: `/docs`)  
+- Streamlit: `streamlit-app/app.py` → `API_URL` env ile FastAPI bağlantısı.  
+> PLACEHOLDER: FastAPI docs screenshot — `/real-time-stock-tracker/docs/images/fastapi-docs.png`  
+> PLACEHOLDER: Streamlit dashboard screenshot — `docs/images/streamlit-dashboard.png`
 
-## 🔥 Spark (Geliştirme Aşaması)
-
-`spark_jobs/` altında Structured Streaming ve toplulaştırma örnekleri mevcut. Şu an docker-compose’a dahil değil. Sonraki adımda Spark master/worker ve bağlantılar eklenecek.
-
-—
+---
 
 ## 🧯 Sorun Giderme
+- Kafka UI bağlanmıyor: 3 broker container’larının ayakta olduğundan emin olun; network alias’ları doğru mu?
+- MongoDB bağlantı hatası: Atlas kullanıcı bilgileri + IP allowlist + `.env` doğrula.
+- Sanal ortam aktivasyonu (PowerShell): `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
+- Port çakışması: 8080/8082/8000/8501/9000 kullanan başka servisleri kapatın.
+- Airflow DAG görünmüyor: Dosya adı, `.py` uzantısı ve `dag_id` tanımı kontrol edin, container yeniden başlatın.
 
-- Kafka UI bağlanmıyor: Tüm broker’ların (9092/9093/9094) ayakta olduğundan emin olun; replication factor 3 için 3 broker gerekir.
-- MongoDB bağlantı hatası: Atlas kullanıcı bilgileri ve IP allowlist’i kontrol edin; `.env` değişkenlerinin yüklendiğinden emin olun.
-- PowerShell sanal ortam aktivasyonu engellenirse: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
-- Port çakışmaları: 8080/8082/8000/8501/9000 portlarını başka servislerin kullanmadığından emin olun.
+> PLACEHOLDER: Error log screenshot — `docs/images/error-log.png`
 
-—
+---
 
-## ✅ Yapılacaklar (Backlog)
+## ✅ Backlog (Durum Güncellemesi)
+| Görev | Durum |
+|-------|-------|
+| Producer & Consumer için docker servisleri | ⏳ (compose’a eklenmesi planlanıyor) |
+| Spark container & Kafka sink/source | ⏳ |
+| Airflow DAG’lerini gerçek ETL adımlarıyla zenginleştirme | Devam |
+| Gözlemleme (Prometheus/Grafana/Kafka Exporter) | ⏳ |
 
-- Producer ve Consumer için docker servisleri ekle (compose’a dahil et)
-- Yerel geliştirme için opsiyonel MongoDB konteyneri ekle veya Docker Volume ile yapılandır
-- Schema Registry + Avro/JSON Schema doğrulama (compatibility checks)
-- Spark konteyner(ler)i ekle ve Kafka ↔ Mongo/S3 sink kaynaklarını tanımla
-- Airflow DAG’lerini gerçek ETL adımlarıyla zenginleştir (Spark job tetikleme, rapor üretimi)
-- Testler ve CI (GitHub Actions) + kod kalite (ruff/black, pre-commit)
-- Gizli bilgileri `.env.example` ve gizli yönetimi (örn. Secret Manager) ile düzenle
-- Gözlemleme: Prometheus + Grafana + Kafka Exporter + app metrikleri
-- FastAPI için yetkilendirme, oran sınırlama, input doğrulama ve tip güvenliği
-- KRaft moduna geçiş (opsiyonel) veya mevcut Zookeeper’ı harden et
+> Yapıldı olarak işaretlemek için tablo güncellenecek.
 
-—
+---
 
-## 🖼️ Ekran Görüntüleri
+## 🖼️ Ekran Görüntüsü Yerleri (Placeholders)
+| Açıklama | Dosya Yolu Önerisi | Not |
+|----------|--------------------|------|
+| Mimari Diyagram | `docs/images/architecture.png` | Genel akış |
+| Topic Oluşturma | `docs/images/topic-create.png` | Kafka UI |
+| Mongo Koleksiyon Görünümü | `docs/images/mongo-collections.png` | Atlas |
+| Repository Tree | `docs/images/repo-tree.png` | Güncel klasör yapısı |
+| Airflow UI | `docs/images/airflow-ui.png` | DAG listesi |
+| Spark Çalışma Logu | `docs/images/spark-run.png` | Streaming submit |
+| FastAPI Docs | `docs/images/fastapi-docs.png` | Swagger |
+| Streamlit Dashboard | `docs/images/streamlit-dashboard.png` | Metrikler |
+| HDFS Output | `docs/images/hdfs-output.png` | Günlük özet dosyası |
+| Hata Logu | `docs/images/error-log.png` | Sorun giderme |
 
-Kafka Broker, Topic ve Consumer’ların izlenmesi için Kafka UI (provectuslabs/kafka-ui) kullanıldı.
-<img width="100%" height="100%" alt="image" src="https://github.com/user-attachments/assets/0f71fe7f-4100-4c37-b116-15f029c23ae4" />
+---
 
-MongoDB üzerinde Kafka’dan gelen verilerde product_id filtresi ve azalan zaman sıralamalı sorgu:
-<img width="100%" height="100%" alt="image" src="https://github.com/user-attachments/assets/79d6c124-af61-4584-80ec-cfb8c92b2d3f" />
+## ℹ️ Notlar
+- Bu doküman hdfs-integration dalındaki son durumu yansıtacak şekilde güncellenmiştir.
+- PLACEHOLDER alanları gerçek ekran görüntüleri eklendiğinde değiştirilmelidir.
+
+---
+
+## 📄 Lisans / Kullanım
+Kurumsal iç kullanım içindir (PLACEHOLDER: lisans bilgisi eklenecek).
+
+---
+
+## 🤝 Katkı
+Pull request açmadan önce lütfen planlanan backlog maddeleri ile çakışma durumunu kontrol edin.
+
+---
+
+## 📝 Değişiklik Geçmişi
+| Tarih | Açıklama |
+|-------|----------|
+| 2025-11-25 | README yeniden yapılandırma & HDFS entegrasyonu placeholders |
+
+---
+
+## 🔍 Gelecek Geliştirmeler
+- Streamlit gerçek zaman WebSocket / server-sent events
+- Kafka lag metriklerinin otomatik toplanması
+- HDFS → Parquet optimizasyonu & partisyonlama stratejisi
+- Incremental modeli ile ürün stok tahmini (ML pipeline)
+
+---
+
+### Teşekkürler 🙌
+Sorular için: ISSUE açın ya da dahili iletişim kanalı üzerinden iletin.
 
 
