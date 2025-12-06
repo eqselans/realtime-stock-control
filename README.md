@@ -16,10 +16,8 @@ Temel akış: Producer → Kafka Cluster → Consumer → MongoDB → API (FastA
 7. Airflow DAG’leri
 8. Spark & HDFS Entegrasyonu
 9. API & Dashboard
-10. Sorun Giderme
-11. Backlog
-12. Ekran Görüntüsü Yerleri (Placeholders)
-
+10. Ekran Görüntüsü Yerleri (Placeholders)
+11. Lisans / Kullanım
 ---
 
 ## 🏗️ Bileşenler ve Mimari
@@ -204,17 +202,6 @@ Gelecek adımlar: Spark cluster (master/worker) container’ları, checkpoint di
 
 ---
 
-## ✅ Backlog (Durum Güncellemesi)
-| Görev | Durum |
-|-------|-------|
-| Producer & Consumer için docker servisleri | ⏳ (compose’a eklenmesi planlanıyor) |
-| Spark container & Kafka sink/source | ⏳ |
-| Airflow DAG’lerini gerçek ETL adımlarıyla zenginleştirme | Devam |
-| Gözlemleme (Prometheus/Grafana/Kafka Exporter) | ⏳ |
-
-> Yapıldı olarak işaretlemek için tablo güncellenecek.
-
----
 
 ## 🖼️ Ekran Görüntüsü Yerleri (Placeholders)
 | Açıklama | Dosya Yolu Önerisi | Not |
@@ -230,40 +217,15 @@ Gelecek adımlar: Spark cluster (master/worker) container’ları, checkpoint di
 | HDFS Output | `docs/images/hdfs-output.png` | Günlük özet dosyası |
 | Hata Logu | `docs/images/error-log.png` | Sorun giderme |
 
----
-
-## ℹ️ Notlar
-- Bu doküman hdfs-integration dalındaki son durumu yansıtacak şekilde güncellenmiştir.
-- PLACEHOLDER alanları gerçek ekran görüntüleri eklendiğinde değiştirilmelidir.
-
----
+--
 
 ## 📄 Lisans / Kullanım
-Kurumsal iç kullanım içindir (PLACEHOLDER: lisans bilgisi eklenecek).
+Tamamen açık kaynaklıdır. Emirhan AKSU tarafından geliştirilmiştir. Ticari olmayan projelerde serbestçe kullanılabilir.
 
 ---
 
-## 🤝 Katkı
-Pull request açmadan önce lütfen planlanan backlog maddeleri ile çakışma durumunu kontrol edin.
-
----
-
-## 📝 Değişiklik Geçmişi
-| Tarih | Açıklama |
-|-------|----------|
-| 2025-11-25 | README yeniden yapılandırma & HDFS entegrasyonu placeholders |
-
----
-
-## 🔍 Gelecek Geliştirmeler
-- Streamlit gerçek zaman WebSocket / server-sent events
-- Kafka lag metriklerinin otomatik toplanması
-- HDFS → Parquet optimizasyonu & partisyonlama stratejisi
-- Incremental modeli ile ürün stok tahmini (ML pipeline)
-
----
 
 ### Teşekkürler 🙌
-Sorular için: ISSUE açın ya da dahili iletişim kanalı üzerinden iletin.
+Sorular için: https://www.linkedin.com/in/emirhan-aksu/.
 
 
