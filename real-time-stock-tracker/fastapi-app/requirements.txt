@@ -1,7 +1,6 @@
 fastapi
 uvicorn
 pymongo
-langchain
 python-dotenv
-flask
 requests
+pydantic

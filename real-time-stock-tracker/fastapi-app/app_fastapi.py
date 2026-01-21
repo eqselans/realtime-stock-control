@@ -54,7 +54,7 @@ tags_metadata = [
 ]
 
 app = FastAPI(
-    title="🚀 ~Gerçek Zamanlı Stok Yönetimi API",    
+    title="🚀 Gerçek Zamanlı Stok Yönetimi API",    
     description="""
     ## 📦 Gerçek Zamanlı Stok Takip Sistemi
     
@@ -67,13 +67,12 @@ app = FastAPI(
     
     ### Geliştirici Bilgileri:
     * **Stack:** FastAPI, MongoDB, Python
-    * **Maintainer:** Data & AI Team
+    * **Geliştirici:** Emirhan AKSU
     """,
     version="1.2.0",
     contact={
-        "name": "Eqselans Data Team",
-        "url": "https://github.com/eqselans/realtime-stock-control",
-        "email": "data-team@eqselans.com",
+        "name": "Emirhan AKSU",
+        "url": "https://github.com/emrhnaksu/realtime-stock-control",
     },
     openapi_tags=tags_metadata
 )
