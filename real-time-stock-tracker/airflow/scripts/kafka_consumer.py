@@ -91,7 +91,7 @@ def process_event(event: dict):
     # 1. Geçmiş log: Her olayı ekle
     log_doc = {
         **event,
-        "recieved_at": datetime.utcnow(),
+        "received_at": datetime.utcnow(),
         "source": "kafka_consumer",
     }
     stock_logs.insert_one(log_doc)
